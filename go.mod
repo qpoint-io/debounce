@@ -1,1 +1,3 @@
-module github.com/bep/debounce
+module github.com/qpoint-io/debounce
+
+go 1.22.0
