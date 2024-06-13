@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bep/debounce"
+	"github.com/qpoint-io/debounce"
 )
 
 func TestDebounce(t *testing.T) {
@@ -28,7 +28,7 @@ func TestDebounce(t *testing.T) {
 		atomic.AddUint64(&counter2, 2)
 	}
 
-	debounced := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100*time.Millisecond, 1000)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -64,7 +64,7 @@ func TestDebounceConcurrentAdd(t *testing.T) {
 
 	var flag uint64
 
-	debounced := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100*time.Millisecond, 1000)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -95,7 +95,7 @@ func TestDebounceDelayed(t *testing.T) {
 		atomic.AddUint64(&counter1, 1)
 	}
 
-	debounced := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100*time.Millisecond, 1000)
 
 	time.Sleep(110 * time.Millisecond)
 
@@ -117,7 +117,7 @@ func BenchmarkDebounce(b *testing.B) {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100*time.Millisecond, 1000)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -137,7 +137,7 @@ func ExampleNew() {
 		atomic.AddUint64(&counter, 1)
 	}
 
-	debounced := debounce.New(100 * time.Millisecond)
+	debounced := debounce.New(100*time.Millisecond, 1000)
 
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 10; j++ {
@@ -151,4 +151,26 @@ func ExampleNew() {
 
 	fmt.Println("Counter is", c)
 	// Output: Counter is 3
+}
+
+func TestDebouncerCountLimit(t *testing.T) {
+	after := 1 * time.Hour
+	countLimit := uint64(3)
+
+	var execCount uint64
+
+	f := func() {
+		atomic.AddUint64(&execCount, 1)
+	}
+
+	debounced := debounce.New(after, countLimit)
+
+	for i := uint64(0); i < countLimit+1; i++ {
+		debounced(f)
+	}
+
+	expectedExecCount := uint64(1)
+	if atomic.LoadUint64(&execCount) != expectedExecCount {
+		t.Errorf("Expected function to be executed %d time(s), but got %d", expectedExecCount, atomic.LoadUint64(&execCount))
+	}
 }

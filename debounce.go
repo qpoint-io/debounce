@@ -13,13 +13,18 @@ import (
 	"time"
 )
 
-// New returns a debounced function that takes another functions as its argument.
+// New returns a debounced function that takes another function as its argument.
 // This function will be called when the debounced function stops being called
-// for the given duration.
+// for the given duration, provided the maximum count hasn't been exceeded.
+// Once the maximum count is exceeded, the function is executed one last time
+// and the debouncer is reset.
 // The debounced function can be invoked with different functions, if needed,
 // the last one will win.
-func New(after time.Duration) func(f func()) {
-	d := &debouncer{after: after}
+func New(after time.Duration, countLimit uint64) func(f func()) {
+	d := &debouncer{
+		after:      after,
+		countLimit: countLimit,
+	}
 
 	return func(f func()) {
 		d.add(f)
@@ -27,17 +32,44 @@ func New(after time.Duration) func(f func()) {
 }
 
 type debouncer struct {
-	mu    sync.Mutex
-	after time.Duration
-	timer *time.Timer
+	mu         sync.Mutex
+	after      time.Duration
+	timer      *time.Timer
+	count      uint64
+	countLimit uint64
 }
 
 func (d *debouncer) add(f func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// Increment the count
+	d.count++
+
+	// If count exceeds maxCount, execute the function and reset
+	if d.count > d.countLimit {
+		if d.timer != nil {
+			d.timer.Stop()
+			d.timer = nil
+		}
+
+		f()
+
+		// Reset the count for the next iteration
+		d.count = 0
+		return
+	}
+
 	if d.timer != nil {
 		d.timer.Stop()
 	}
-	d.timer = time.AfterFunc(d.after, f)
+	d.timer = time.AfterFunc(d.after, func() {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+
+		f()
+
+		// Reset the count after the function is executed
+		d.count = 0
+	})
 }

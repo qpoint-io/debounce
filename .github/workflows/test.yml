@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 name: Test
@@ -10,8 +10,8 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.18.x]
-        os: [ubuntu-latest, windows-latest]
+        go-version: [1.22.x]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Install Go
@@ -41,10 +41,3 @@ jobs:
       run: golint ./...
     - name: Test
       run: go test -race .
-    - name: Upload coverage
-      if: success() && matrix.os == 'ubuntu-latest'
-      run: |
-        curl -s https://codecov.io/bash | bash
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      shell: bash
